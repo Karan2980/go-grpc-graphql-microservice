@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/Karan2980/go-grpc-graphql-microservice/account/pb"
+	pb "github.com/Karan2980/go-grpc-graphql-microservice/account/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 type grpcServer struct {
-	pb.UnimplementedAccountServiceServer // Add this for modern gRPC
+	pb.UnimplementedAccountServiceServer
 	service Service
 }
 
@@ -22,8 +22,7 @@ func ListenGRPC(s Service, port int) error {
 	}
 	serv := grpc.NewServer()
 	pb.RegisterAccountServiceServer(serv, &grpcServer{
-		UnimplementedAccountServiceServer: pb.UnimplementedAccountServiceServer{},
-		service:                          s,
+		service: s,
 	})
 	reflection.Register(serv)
 	return serv.Serve(lis)

@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/Karan2980/go-grpc-graphql-microservice/account"
+	"github.com/Karan2980/go-grpc-graphql-microservice/catalog"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/tinrab/retry"
 )
@@ -24,9 +24,9 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
-	var r account.Repository
+	var r catalog.Repository
 	retry.ForeverSleep(2*time.Second, func(_ int) (err error) {
-		r, err = account.NewPostgresRepository(cfg.DatabaseURL)
+		r, err = catalog.NewElasticRepository(cfg.DatabaseURL)
 		if err != nil {
 			log.Println("Failed to connect to database:", err)
 		}
@@ -35,6 +35,6 @@ func main() {
 	defer r.Close()
 
 	log.Println("Listening on port 8080...")
-	s := account.NewService(r)
-	log.Fatal(account.ListenGRPC(s, 8080))
+	s := catalog.NewService(r)
+	log.Fatal(catalog.ListenGRPC(s, 8080))
 }
