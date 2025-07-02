@@ -1,11 +1,127 @@
+version: '3.8'
 
-
-
-service:
+services:
+  # Account Service
   account:
+    build:
+      context: .
+      dockerfile: account/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:password@account_db:5432/account?sslmode=disable
+    depends_on:
+      - account_db
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  # Catalog Service
   catalog:
+    build:
+      context: .
+      dockerfile: catalog/Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      - DATABASE_URL=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  # Order Service
   order:
+    build:
+      context: .
+      dockerfile: order/Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:password@order_db:5432/order?sslmode=disable
+      - ACCOUNT_SERVICE_URL=account:8080
+      - CATALOG_SERVICE_URL=catalog:8080
+    depends_on:
+      - order_db
+      - account
+      - catalog
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  # GraphQL Gateway
   graphql:
+    build:
+      context: .
+      dockerfile: graphql/Dockerfile
+    ports:
+      - "8083:8080"
+    environment:
+      - ACCOUNT_SERVICE_URL=account:8080
+      - CATALOG_SERVICE_URL=catalog:8080
+      - ORDER_SERVICE_URL=order:8080
+    depends_on:
+      - account
+      - catalog
+      - order
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  # Account Database (PostgreSQL)
   account_db:
-  catalog_db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=account
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - account_db_data:/var/lib/postgresql/data
+      - ./account/up.sql:/docker-entrypoint-initdb.d/up.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  # Catalog Database (Elasticsearch) - DOWNGRADED TO v5.6
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.6.16
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - catalog_db_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+  # Order Database (PostgreSQL)
   order_db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=order
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+      - ./order/up.sql:/docker-entrypoint-initdb.d/up.sql
+    ports:
+      - "5433:5432"
+    restart: unless-stopped
+    networks:
+      - microservices
+
+volumes:
+  account_db_data:
+  catalog_db_data:
+  order_db_data:
+
+networks:
+  microservices:
+    driver: bridge
